@@ -109,7 +109,7 @@ in {
   options = {
     defaultCommandCategory = mkOption {
       type = types.str;
-      default = "general commands";
+      default = "general";
     };
 
    commandCategoryOrder = mkOption {
