@@ -10,7 +10,7 @@ let
       "${name} requires a definition via the 'text' attribute";
     pkgs.writeShellScriptBin name cmd.text;
 
-  commandsToMenu = commands:
+  commandsToMenu = { commands, commandCategoryOrder, ... }:
     let
       commands' = mapAttrsToList (name: attrs: attrs // { inherit name; }) commands;
 
@@ -18,14 +18,28 @@ let
         (zipAttrsWithNames [ "category" ] (name: attr: attr) commands').category
       );
 
-      commandByCategoriesSorted =
-        builtins.attrValues (lib.genAttrs
+      # Map category name to index
+      commandCategoryOrder' =
+        (builtins.listToAttrs (
+          map (c: { name = c; value = 0; }) commandCategories)
+        )
+        //
+        (builtins.listToAttrs (
+            imap0 (value: name: { inherit name value; }) commandCategoryOrder
+        ));
+
+
+      commandByCategoriesSorted = builtins.sort
+        (a: b: commandCategoryOrder'.${a.name} < commandCategoryOrder'.${b.name or 0})
+        # Sorted categories with the commands
+        (builtins.attrValues (lib.genAttrs
           commandCategories
+          # Sorted commands for this category
           (category: lib.nameValuePair category (builtins.sort
             (a: b: a.name < b.name)
             (builtins.filter (x: x.category == category) commands')
           ))
-        );
+        ));
 
       commandLengths =
         map ({ name, ... }: builtins.stringLength name) commands';
@@ -98,6 +112,14 @@ in {
       default = "general commands";
     };
 
+   commandCategoryOrder = mkOption {
+      type = types.listOf types.str;
+      default = [];
+      description = ''
+        A list of the categories in desired order.
+      '';
+    };
+
     commands = mkOption {
       type = types.attrsOf (types.submodule {
         options = commandOptions;
@@ -112,7 +134,7 @@ in {
         help = "prints this menu";
         text = ''
           echo -e "\
-          ${commandsToMenu config.commands}"
+          ${commandsToMenu config}"
         '';
       };
     };
